@@ -1,0 +1,42 @@
+{
+  "title": { "en": "My DSH Market", "zh": "我的 DSH 市场" },
+  "description": {
+    "en": "Bundles I actually run, pinned to published npm versions.",
+    "zh": "本机实际在跑的插件集合，固定到已发布的 npm 版本。"
+  },
+  "out": "index.json",
+  "metadata": {
+    "categories": {
+      "ui": { "title": { "en": "UI", "zh": "界面" } },
+      "session": { "title": { "en": "Sessions", "zh": "会话" } },
+      "tools": { "title": { "en": "Tools", "zh": "工具" } },
+      "model": { "title": { "en": "Models", "zh": "模型接入" } },
+      "skin": { "title": { "en": "Themes", "zh": "主题外观" } },
+      "dev": { "title": { "en": "Development", "zh": "开发" } }
+    }
+  },
+  "plugins": [
+    "dshmarket",
+    "dsh-better-sidebar",
+    "dsh-plugin-dev-kb",
+    "dsh-ops",
+    "dsh-free-search",
+    "dsh-context",
+    "dsh-pocket",
+    "dsh-recall-plugin",
+    "dsh-notify-me",
+    "dsh-whale-widget",
+    "dsh-skin-market",
+    "dsh-computer-use-win",
+    "dsh-image-gen",
+    "dsh-our-free-model",
+    "@kenz1117/dsh-ui-usage-billing",
+    "@linxin666/dsh-client-ui-skill-explorer",
+    "@michengai/dsh-agency-agents",
+    "@michengai/dsh-archive-manager",
+    "@michengai/dsh-skills-manager",
+    "@tt-a1i/archify-dsh",
+    "@wisdoverse/dsh-inline-media-viewer",
+    "@wxg-prc-cpg/browser-skill-dsh-plugin"
+  ]
+}

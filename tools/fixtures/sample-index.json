@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "title": { "en": "My Team Market", "zh": "我的团队市场" },
+  "description": { "en": "Bundles maintained by our team.", "zh": "内部维护的组合包。" },
+  "metadata": {
+    "categories": {
+      "ui": { "title": { "en": "UI", "zh": "界面" } },
+      "tools": { "title": { "en": "Tools", "zh": "工具" } }
+    },
+    "labels": {
+      "stable": { "title": { "en": "Stable", "zh": "稳定" } },
+      "beta": { "title": { "en": "Beta", "zh": "测试" } }
+    },
+    "sortKeys": {
+      "stars": { "title": { "en": "Stars", "zh": "星数" }, "order": "desc" }
+    }
+  },
+  "plugins": [
+    {
+      "name": "@acme/dsh-plugin-hello",
+      "title": { "en": "Hello", "zh": "你好" },
+      "description": { "en": "Says hello.", "zh": "打个招呼。" },
+      "icon": "./icons/hello.png",
+      "author": "Acme",
+      "homepage": "https://github.com/acme/dsh-plugin-hello",
+      "repository": { "url": "https://github.com/acme/dsh-plugin-hello", "directory": "packages/hello" },
+      "metadata": {
+        "category": "ui",
+        "keywords": ["hello", "demo"],
+        "labels": ["stable"],
+        "sortKeys": { "stars": 42 }
+      },
+      "versions": [
+        {
+          "version": "1.2.0",
+          "publishTimestamp": 1767225600,
+          "source": { "type": "npm" },
+          "engines": { "dsh": "^0.1.0" }
+        },
+        {
+          "version": "1.1.0",
+          "publishTimestamp": 1764547200,
+          "source": { "type": "git", "url": "https://github.com/acme/dsh-plugin-hello", "commit": "0123456789abcdef0123456789abcdef01234567", "path": "packages/hello" }
+        }
+      ]
+    }
+  ]
+}
