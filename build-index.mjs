@@ -157,6 +157,42 @@ function authorName(value) {
   return undefined;
 }
 
+/** 从 maintainers 数组取第一个名字。 */
+function maintainerName(value) {
+  if (!Array.isArray(value)) return undefined;
+  for (const entry of value) {
+    const name = authorName(entry);
+    if (name !== undefined) return name;
+  }
+  return undefined;
+}
+
+/** 从仓库地址取 owner，例如 https://github.com/Nagi-ovo/x -> Nagi-ovo */
+function ownerFromRepo(url) {
+  if (typeof url !== 'string') return undefined;
+  const match = /^https?:\/\/[^/]+\/([^/]+)\//.exec(url);
+  return match === null ? undefined : match[1];
+}
+
+/** npm scope 作为作者兜底：@michengai/x -> michengai */
+function scopeOf(name) {
+  const match = /^@([^/]+)\//.exec(name);
+  return match === null ? undefined : match[1];
+}
+
+/**
+ * 作者：依次尝试 manifest.author、maintainers、仓库 owner、包名 scope。
+ * 索引的 author 是自由字符串，够用来搜索和判断来源即可。
+ */
+function resolveAuthor(manifest, repositoryUrl, packageName) {
+  return (
+    authorName(manifest.author) ??
+    maintainerName(manifest.maintainers) ??
+    ownerFromRepo(repositoryUrl) ??
+    scopeOf(packageName)
+  );
+}
+
 function dshRange(manifest) {
   const range = manifest.engines && manifest.engines.dsh;
   if (typeof range !== 'string' || range.trim() === '' || range.startsWith('workspace:')) return undefined;
@@ -211,8 +247,8 @@ function digest(doc) {
 
   const description =
     typeof shown.description === 'string' && shown.description.trim() !== '' ? shown.description.trim() : undefined;
-  const author = authorName(shown.author);
   const repository = repoUrl(shown.repository);
+  const author = resolveAuthor(shown, repository, doc.name);
   const homepage = typeof shown.homepage === 'string' && /^https?:\/\//.test(shown.homepage) ? shown.homepage : undefined;
 
   return {
@@ -328,6 +364,11 @@ for (const name of config.plugins) {
     if (directory === undefined) delete plugin.repository.directory;
     else plugin.repository.directory = directory;
   }
+  // 旧缓存可能缺 author，用仓库 owner / 包名 scope 回填
+  if (plugin.author === undefined) {
+    const fallback = ownerFromRepo(plugin.repository?.url) ?? scopeOf(plugin.name);
+    if (fallback !== undefined) plugin.author = fallback;
+  }
   // 旧缓存的版本顺序可能不是 SemVer 降序，这里统一重排
   plugin.versions.sort((left, right) => semver.rcompare(left.version, right.version));
   seen.add(plugin.name);
@@ -341,8 +382,41 @@ const METRIC_SORT_KEYS = {
   downloads: { title: { en: 'Weekly downloads', zh: '周下载量' }, order: 'desc' },
 };
 
+/**
+ * 热度分档标签。
+ *
+ * format 1 没有「任意展示字段」，sortKeys 只用于排序、界面不显示数值。
+ * 能显示在卡片上的只有 labels，所以把星数和下载量按量级折成标签，
+ * 让用户在列表里就能看出热度。
+ */
+const HEAT_TIERS = [
+  { key: 'stars', tiers: [20000, 10000, 5000, 2000, 1000, 500, 100], format: (n) => `★ ${n >= 1000 ? `${n / 1000}k` : n}+` },
+  { key: 'downloads', tiers: [100000, 50000, 10000, 5000, 1000], format: (n) => `↓ ${n >= 1000 ? `${n / 1000}k` : n}/wk` },
+];
+
+/** 声明所有可能的标签，界面按本地化标题显示。 */
+function heatLabelDeclarations() {
+  const declarations = {};
+  for (const { key, tiers, format } of HEAT_TIERS) {
+    for (const tier of tiers) {
+      const title = format(tier);
+      declarations[`${key}-${tier}`] = { title: { en: title, zh: title } };
+    }
+  }
+  return declarations;
+}
+
+/** 把一个指标值折成最高满足档位的标签 id。 */
+function heatLabelOf(key, value) {
+  const spec = HEAT_TIERS.find((entry) => entry.key === key);
+  if (spec === undefined || typeof value !== 'number') return undefined;
+  const tier = spec.tiers.find((candidate) => value >= candidate);
+  return tier === undefined ? undefined : `${key}-${tier}`;
+}
+
 const metrics = fs.existsSync(METRICS_FILE) ? JSON.parse(fs.readFileSync(METRICS_FILE, 'utf8')) : {};
 const metricNames = Object.keys(metrics).length > 0 ? Object.keys(METRIC_SORT_KEYS) : [];
+const usedHeatLabels = new Set();
 
 if (metricNames.length > 0) {
   let enriched = 0;
@@ -354,7 +428,22 @@ if (metricNames.length > 0) {
       if (typeof values[key] === 'number') sortKeys[key] = values[key];
     }
     if (Object.keys(sortKeys).length === 0) continue;
-    plugin.metadata = { ...(plugin.metadata ?? {}), sortKeys };
+
+    // 热度标签：每个指标只取最高档
+    const labels = [];
+    for (const key of metricNames) {
+      const label = heatLabelOf(key, values[key]);
+      if (label !== undefined) {
+        labels.push(label);
+        usedHeatLabels.add(label);
+      }
+    }
+
+    plugin.metadata = {
+      ...(plugin.metadata ?? {}),
+      sortKeys,
+      ...(labels.length === 0 ? {} : { labels }),
+    };
     enriched += 1;
   }
   console.log(`已注入排序指标：${enriched}/${plugins.length} 个插件`);
@@ -366,18 +455,32 @@ for (const key of metricNames) {
   if (declaredSortKeys[key] === undefined) declaredSortKeys[key] = METRIC_SORT_KEYS[key];
 }
 
+// 标签声明：config 里声明的优先，再补上实际用到的热度标签
+const declaredLabels = { ...(config.metadata?.labels ?? {}) };
+const allHeatLabels = heatLabelDeclarations();
+for (const label of usedHeatLabels) {
+  if (declaredLabels[label] === undefined) declaredLabels[label] = allHeatLabels[label];
+}
+
+const declaredCategories = config.metadata?.categories ?? {};
+const hasMetadata =
+  Object.keys(declaredSortKeys).length > 0 ||
+  Object.keys(declaredLabels).length > 0 ||
+  Object.keys(declaredCategories).length > 0;
+
 const index = {
   format: 1,
   title: config.title ?? 'My DSH Market',
   ...(config.description === undefined ? {} : { description: config.description }),
-  ...(config.metadata === undefined && Object.keys(declaredSortKeys).length === 0
-    ? {}
-    : {
+  ...(hasMetadata
+    ? {
         metadata: {
-          ...(config.metadata ?? {}),
+          ...(Object.keys(declaredCategories).length === 0 ? {} : { categories: declaredCategories }),
+          ...(Object.keys(declaredLabels).length === 0 ? {} : { labels: declaredLabels }),
           ...(Object.keys(declaredSortKeys).length === 0 ? {} : { sortKeys: declaredSortKeys }),
         },
-      }),
+      }
+    : {}),
   plugins,
 };
 

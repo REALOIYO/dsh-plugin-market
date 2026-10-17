@@ -30,13 +30,41 @@ function npmNameOf(command) {
 
 /** 包名 -> 星数；同一包出现多次时取最大值。 */
 const stars = new Map();
+/**
+ * 无 scope 包名 -> 星数。
+ *
+ * 社区目录可能把某个包记成 GitHub 源、并用 `@作者/包名` 作为条目名，
+ * 而它在 npm 上其实是无 scope 的正式包（例如 dsh-our-free-model）。
+ * 这里按「scope 之后的名字」建一份索引，作为精确匹配不到时的兜底。
+ * 同名条目可能对应同项目的不同来源，取星数最大的那个。
+ */
+const starsByBasename = new Map();
+
 for (const entry of external.plugins ?? []) {
+  if (typeof entry.stars !== 'number') continue;
+
   const name = npmNameOf(entry.install);
-  if (name === undefined || typeof entry.stars !== 'number') continue;
-  const key = name.toLowerCase();
-  stars.set(key, Math.max(stars.get(key) ?? 0, entry.stars));
+  if (name !== undefined) {
+    const key = name.toLowerCase();
+    stars.set(key, Math.max(stars.get(key) ?? 0, entry.stars));
+  }
+
+  // 从条目名（alias 或 name）取 scope 之后的部分
+  const label = typeof entry.alias === 'string' ? entry.alias : entry.name;
+  if (typeof label !== 'string') continue;
+  const basename = label.includes('/') ? label.slice(label.lastIndexOf('/') + 1) : label;
+  starsByBasename.set(basename, Math.max(starsByBasename.get(basename) ?? 0, entry.stars));
 }
-console.log(`星数索引 ${stars.size} 个包`);
+
+/** 查询星数：先精确匹配包名，再按 basename 兜底（同名取最大）。 */
+function starsOf(packageName) {
+  const key = packageName.toLowerCase();
+  if (stars.has(key)) return stars.get(key);
+  const basename = key.includes('/') ? key.slice(key.lastIndexOf('/') + 1) : key;
+  return starsByBasename.get(basename);
+}
+
+console.log(`星数索引 ${stars.size} 个包（另有 ${starsByBasename.size} 个按名兜底）`);
 
 const wanted = index.plugins.map((plugin) => plugin.name);
 const plain = wanted.filter((name) => !name.startsWith('@'));
@@ -111,8 +139,8 @@ let withDownloads = 0;
 for (const name of wanted) {
   const key = name.toLowerCase();
   const entry = {};
-  if (stars.has(key)) {
-    entry.stars = stars.get(key);
+  if (starsOf(name) !== undefined) {
+    entry.stars = starsOf(name);
     withStars += 1;
   }
   if (downloads.has(key)) {
