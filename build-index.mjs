@@ -12,11 +12,14 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import semver from 'semver';
 
 const REGISTRY = 'https://registry.npmjs.org';
 const CACHE_DIR = '.cache';
 const CACHE_FILE = path.join(CACHE_DIR, 'digest.json');
 const SEEDS_DIR = 'seeds';
+const METRICS_FILE = 'metrics.json';
 const CONCURRENCY = 24;
 
 /** 广撒网的搜索关键词：覆盖关键字、命名约定和生态前缀。 */
@@ -59,11 +62,36 @@ async function getJson(url, attempts = 3) {
 }
 
 /**
- * 收集候选包名。
+ * 用 curl 取 JSON。
  *
- * 优先读种子文件 `seeds/*.json`（外部目录导出的包名清单），这样完全不依赖
- * npm 的搜索接口 —— 该接口在部分网络环境下会被中间设备拦截。
- * 没有种子时才回退到搜索接口。
+ * 某些网络环境下 Node 的 fetch 访问 npm 的搜索接口会被中间设备拦成 404，
+ * 而 curl 走同样的 URL 却正常。搜索发现必须可靠，所以这里直接调 curl。
+ */
+function curlJson(url, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const stdout = execFileSync('curl', ['-sS', '-m', '40', '--compressed', url], {
+        encoding: 'utf8',
+        maxBuffer: 128 * 1024 * 1024,
+      });
+      if (stdout.trim() === '') throw new Error('空响应');
+      return JSON.parse(stdout);
+    } catch (error) {
+      if (attempt === attempts) {
+        warnOnce(url, `curl 放弃 ${url}: ${error.message}`);
+        return undefined;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500 * attempt);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 收集候选包名：种子清单 + npm 搜索。
+ *
+ * 两者都要 —— 种子覆盖社区已知的包，搜索覆盖种子里没有的（例如只在 npm 发布、
+ * 但社区目录把它记成 GitHub 源的那些）。
  */
 async function discoverNames() {
   const names = new Set();
@@ -78,23 +106,24 @@ async function discoverNames() {
       console.log(`  种子 ${file.padEnd(24)} +${names.size - before}`);
     }
     console.log(`种子清单合计 ${names.size} 个包名`);
-    return [...names];
   }
 
-  console.log('未找到 seeds/，回退到 npm 搜索接口…');
+  const seedCount = names.size;
+  console.log('npm 搜索补充…');
   for (const query of QUERIES) {
     let before = names.size;
     for (let from = 0; from < 10000; from += 250) {
-      // 注意：冒号必须原样保留，npm 搜索接口不接受 %3A 编码的 `keywords:` 语法
+      // 冒号必须原样保留：npm 不接受 %3A 编码的 `keywords:` 语法
       const url = `${REGISTRY}/-v1/search?text=${encodeURIComponent(query).replace(/%3A/gi, ':')}&size=250&from=${from}`;
-      const page = await getJson(url);
+      const page = curlJson(url);
       if (page === undefined || !Array.isArray(page.objects) || page.objects.length === 0) break;
       for (const object of page.objects) names.add(object.package.name);
       if (page.objects.length < 250) break;
     }
-    console.log(`  ${query.padEnd(28)} 候选累计 ${names.size}（本次 +${names.size - before}）`);
-    if (names.size === before) warnOnce(`empty:${query}`, `警告：关键词 "${query}" 没有返回任何候选`);
+    console.log(`  ${query.padEnd(28)} +${names.size - before}`);
   }
+
+  console.log(`合计 ${names.size} 个候选（搜索新增 ${names.size - seedCount}）`);
   return [...names];
 }
 
@@ -169,6 +198,9 @@ function digest(doc) {
   }
 
   if (versions.length === 0) return undefined;
+
+  // 与 DSH 读取器一致：按 SemVer 降序（相等时保留发布顺序），versions[0] 即最高版本
+  versions.sort((left, right) => semver.rcompare(left.version, right.version));
 
   const latest = doc['dist-tags'] && doc['dist-tags'].latest;
   const shown = doc.versions[latest] ?? doc.versions[versions.at(-1).version] ?? {};
@@ -296,16 +328,56 @@ for (const name of config.plugins) {
     if (directory === undefined) delete plugin.repository.directory;
     else plugin.repository.directory = directory;
   }
+  // 旧缓存的版本顺序可能不是 SemVer 降序，这里统一重排
+  plugin.versions.sort((left, right) => semver.rcompare(left.version, right.version));
   seen.add(plugin.name);
   plugins.push(plugin);
 }
 plugins.sort((left, right) => left.name.localeCompare(right.name));
 
+/** 排序键声明：来自 metrics.json 的指标自动登记，可在 config 里覆盖标题。 */
+const METRIC_SORT_KEYS = {
+  stars: { title: { en: 'GitHub stars', zh: 'GitHub 星数' }, order: 'desc' },
+  downloads: { title: { en: 'Weekly downloads', zh: '周下载量' }, order: 'desc' },
+};
+
+const metrics = fs.existsSync(METRICS_FILE) ? JSON.parse(fs.readFileSync(METRICS_FILE, 'utf8')) : {};
+const metricNames = Object.keys(metrics).length > 0 ? Object.keys(METRIC_SORT_KEYS) : [];
+
+if (metricNames.length > 0) {
+  let enriched = 0;
+  for (const plugin of plugins) {
+    const values = metrics[plugin.name];
+    if (values === undefined) continue;
+    const sortKeys = {};
+    for (const key of metricNames) {
+      if (typeof values[key] === 'number') sortKeys[key] = values[key];
+    }
+    if (Object.keys(sortKeys).length === 0) continue;
+    plugin.metadata = { ...(plugin.metadata ?? {}), sortKeys };
+    enriched += 1;
+  }
+  console.log(`已注入排序指标：${enriched}/${plugins.length} 个插件`);
+}
+
+// 合并排序键声明：config 里声明的优先（可改标题），其余用默认
+const declaredSortKeys = { ...(config.metadata?.sortKeys ?? {}) };
+for (const key of metricNames) {
+  if (declaredSortKeys[key] === undefined) declaredSortKeys[key] = METRIC_SORT_KEYS[key];
+}
+
 const index = {
   format: 1,
   title: config.title ?? 'My DSH Market',
   ...(config.description === undefined ? {} : { description: config.description }),
-  ...(config.metadata === undefined ? {} : { metadata: config.metadata }),
+  ...(config.metadata === undefined && Object.keys(declaredSortKeys).length === 0
+    ? {}
+    : {
+        metadata: {
+          ...(config.metadata ?? {}),
+          ...(Object.keys(declaredSortKeys).length === 0 ? {} : { sortKeys: declaredSortKeys }),
+        },
+      }),
   plugins,
 };
 

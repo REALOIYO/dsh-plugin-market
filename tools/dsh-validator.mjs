@@ -90,10 +90,18 @@ function collect(node, prefix, out) {
 }
 
 /**
- * 解压校验器依赖到临时目录并加载它。
+ * 加载校验器：优先用本仓库 node_modules 里从 npm 装的正版包（CI 走这条路），
+ * 退回到从本机 DSH 的 app.asar 现场解出（本地开发走这条路）。
+ * 两条路径加载的是同一份代码，判定结果一致。
  * @returns 校验器模块。
  */
 export async function loadValidator() {
+  const local = path.join('node_modules', '@deepseek-ai', 'dsh-plugin-market-index', 'lib', 'index.js');
+  if (fs.existsSync(local)) {
+    const module = await import(pathToFileURL(path.resolve(local)).href);
+    return { module, from: `npm: ${path.resolve(local)}` };
+  }
+
   const asar = findAsar();
   const stamp = crypto.createHash('sha1').update(`${asar}:${fs.statSync(asar).mtimeMs}`).digest('hex').slice(0, 12);
   const target = path.join(os.tmpdir(), `dsh-market-validator-${stamp}`);

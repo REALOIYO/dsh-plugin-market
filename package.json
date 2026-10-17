@@ -1,0 +1,18 @@
+{
+  "name": "dsh-plugin-market",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH plugin market index (format 1) generated from npm",
+  "scripts": {
+    "build": "node build-index.mjs",
+    "build:cache": "node build-index.mjs --from-cache",
+    "metrics": "node collect-metrics.mjs dshso.json index.json",
+    "check": "node tools/check.mjs index.json",
+    "audit": "node tools/audit.mjs index.json",
+    "e2e": "node tools/e2e.mjs index.json"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-plugin-market-index": "*"
+  }
+}
