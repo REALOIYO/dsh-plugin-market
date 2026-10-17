@@ -1,0 +1,75 @@
+name: Refresh market index
+
+on:
+  schedule:
+    # 每天 UTC 19:00（北京时间 03:00）重建一次
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-index
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install validator
+        run: npm install --no-audit --no-fund
+
+      # 缓存上次抓到的 packument 摘要，让每天只抓新增/变更的包
+      - name: Restore packument cache
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: packuments-${{ github.run_id }}
+          restore-keys: |
+            packuments-
+
+      # 社区目录用于补充 star 数；下载失败不阻断构建
+      - name: Download community catalog
+        continue-on-error: true
+        run: curl -sS --max-time 120 -o dshso.json https://www.dsh.so/plugins-index.json
+
+      - name: Discover and fetch packages
+        run: node build-index.mjs
+
+      - name: Collect stars and downloads
+        continue-on-error: true
+        run: |
+          if [ -f dshso.json ]; then
+            node collect-metrics.mjs dshso.json index.json
+          else
+            echo "没有社区目录，跳过 star 采集"
+          fi
+
+      - name: Rebuild with metrics
+        run: node build-index.mjs --from-cache
+
+      - name: Validate against the official checker
+        run: node tools/check.mjs index.json
+
+      - name: Privacy audit
+        run: node tools/audit.mjs index.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.json metrics.json
+          if git diff --staged --quiet; then
+            echo "索引没有变化"
+          else
+            git commit -m "Refresh index $(date -u +%Y-%m-%d)"
+            git push
+          fi
