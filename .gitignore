@@ -4,3 +4,8 @@ node_modules/
 dshso.json
 .DS_Store
 Thumbs.db
+
+# 临时调试产物
+_.*
+*.bak-*
+*.bak
