@@ -1,5 +1,7 @@
 # DSH 插件市场索引（format 1）
 
+[![Refresh market index](https://github.com/REALOIYO/dsh-plugin-market/actions/workflows/refresh.yml/badge.svg)](https://github.com/REALOIYO/dsh-plugin-market/actions/workflows/refresh.yml)
+
 一份自建的 DSH 插件市场索引，收录 npm 上全部可安装的 DSH 组合包（bundle）。
 
 **规模**：4,839 个插件 / 44,565 个版本，索引文件 6.0 MB。
@@ -174,7 +176,7 @@ tools/dsh-validator.mjs 从 app.asar 解出校验器
 
 | 问题 | 现状 | 实际影响 |
 |---|---|---|
-| **每日重建未经验证** | 仓库 2026-10-17 建立，定时任务首跑 10-18 03:00 | 还没有长期运行证据；GitHub schedule 本身会延迟甚至跳过 |
+| **定时任务会延迟** | cron 定 `0 19 * * *` UTC；2026-10-18 首次定时构建实际于 21:21 UTC 启动 | 延迟约 2h22m 属正常排队，但最坏情况可能被跳过；新插件实际延迟 1–26 小时 |
 | **Actions 缓存键每次都变** | `key: packuments-${{ github.run_id }}` | 精确 key 永不命中，只能靠 `restore-keys` 前缀捡最新的；每次运行都写新缓存，会持续累积到 GitHub 的 10 GB 上限 |
 | **热度标签只覆盖 7%** | 351 / 4,839，阈值 `stars ≥ 100` 或 `downloads ≥ 1000` | 93% 的插件卡片上不显示任何热度，即使它有数据 |
 | **没有生成时间戳** | 索引内无 `generatedAt` 字段 | 无法判断这份数据是几点生成的，排查「插件为什么没出现」时很痛苦 |
