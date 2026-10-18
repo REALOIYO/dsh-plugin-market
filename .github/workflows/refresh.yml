@@ -39,19 +39,38 @@ jobs:
       # 社区目录用于补充 star 数；下载失败不阻断构建
       - name: Download community catalog
         continue-on-error: true
-        run: curl -sS --max-time 120 -o dshso.json https://www.dsh.so/plugins-index.json
+        run: curl -sS --max-time 120 --retry 3 -o dshso.json https://www.dsh.so/plugins-index.json
 
       - name: Discover and fetch packages
         run: node build-index.mjs
 
-      - name: Collect stars and downloads
+      # 从社区目录取初版指标（含 scoped 包下载量）
+      - name: Collect metrics from community catalog
         continue-on-error: true
         run: |
           if [ -f dshso.json ]; then
             node collect-metrics.mjs dshso.json index.json
           else
-            echo "没有社区目录，跳过 star 采集"
+            echo "没有社区目录，跳过初版指标采集"
           fi
+
+      # 用 GitHub API 补社区目录覆盖不到的星数。
+      # GITHUB_TOKEN 是 Actions 内置的，无需创建 secret；未认证时限额只有 60 次/小时。
+      - name: Backfill stars from GitHub API
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f metrics.json ] || echo '{}' > metrics.json
+          node tools/fill-stars.mjs index.json metrics.json metrics-stars.json
+          mv metrics-stars.json metrics.json
+
+      # 补 npm 下载量（批量接口不支持 scoped 包，只能逐个查）
+      - name: Backfill npm downloads
+        continue-on-error: true
+        run: |
+          node tools/fill-downloads.mjs index.json metrics.json metrics-dl.json
+          mv metrics-dl.json metrics.json
 
       - name: Rebuild with metrics
         run: node build-index.mjs --from-cache

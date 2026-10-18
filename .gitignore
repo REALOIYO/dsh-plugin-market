@@ -9,3 +9,6 @@ Thumbs.db
 _*
 *.bak-*
 *.bak
+
+# 指标采集中间产物
+metrics-*.json

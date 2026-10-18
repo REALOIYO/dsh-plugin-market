@@ -6,6 +6,7 @@
 
 **规模**：7,123 个插件 / 58,629 个版本，索引文件 9.5 MB。
 **来源**：npm registry 公开元数据（包名、版本、发布时间、`dsh.bundle` 声明、仓库地址）。
+**热度**：6,349 / 7,123（89.1%）带星数或下载量指标——星数取自 GitHub API，下载量取自 npm API。
 **更新**：GitHub Actions 每天自动重建一次，也可以手动触发。
 
 ## 插件是怎么被收录的
@@ -99,7 +100,51 @@ DSH 从 URL 拉一份 JSON，用 `@deepseek-ai/dsh-plugin-market-index` 按「�
 | `stars` | GitHub 星数 | 降序 |
 | `downloads` | npm 周下载量 | 降序 |
 
-值来自两部分：星数取自社区目录 dsh.so 的仓库聚合快照，下载量取自 npm 官方 downloads API。
+值来自两部分：星数取自 GitHub API（`stargazers_count`）并按仓库 URL 匹配到包，
+下载量取自 npm 官方 downloads API。
+
+## 热度指标是怎么来的
+
+索引里只有 `stars` 和 `downloads` 两个数值，DSH 用它们排序，并折成卡片上的标签
+（`★ 100+`、`↓ 1k/wk` 之类）。采集分两步：
+
+1. **星数** —— `tools/fill-stars.mjs` 读每个包的 `repository.url`，取 `owner/repo`
+   调 `GET /repos/{owner}/{repo}`，只取 `stargazers_count`。
+   同一个仓库被多个包引用时只查一次；只处理尚无指标或尚无星数的包。
+2. **下载量** —— `tools/fill-downloads.mjs` 调 npm 的
+   `GET /downloads/point/last-week/{package}`。
+
+### 为什么要认证
+
+GitHub 未认证的 API 限额是 **60 次/小时**，补几千个仓库会立刻用尽并返回 403。
+认证后提升到 **5,000 次/小时**，一次跑完 1,235 个唯一仓库只需约 90 秒。
+
+脚本**只从环境变量 `GITHUB_TOKEN` 读取令牌**，不接受命令行参数，也不写入任何文件：
+
+```bash
+# 本地：从本机 git 凭证管理器取（Windows）
+GITHUB_TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' \
+  | git-credential-manager get | grep '^password=' | cut -d= -f2-) \
+node tools/fill-stars.mjs index.json metrics.json metrics-out.json
+```
+
+```yaml
+# Actions：用内置令牌，无需创建任何 secret
+- env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: node tools/fill-stars.mjs index.json metrics.json metrics-out.json
+```
+
+> Actions 的 `GITHUB_TOKEN` 限额是每仓库 **1,000 次/小时**，按当前规模够用。
+
+### 隐私
+
+- **不写入任何本机信息**：脚本只读到仓库 slug 和星数，输出里没有路径、用户名或令牌。
+- **令牌不落盘**：只存在于进程环境变量中，不写日志、不写中间文件。
+- **索引可公开**：`tools/audit.mjs` 会扫描结构字段，确认没有本机路径、内网地址或凭据。
+  剩余 788 个插件没有指标，原因是作者没填 `repository.url`（623 个）或仓库已删除/私有（165 个），
+  这些缺口无法通过 API 补上。
+
 两者都是**生成时的快照**，随每天重建更新。
 
 没有某个值的插件会排在所有有值的插件之后（这是 format 1 的规则，不是本仓库的选择）。
@@ -239,7 +284,7 @@ tools/dsh-validator.mjs 从 app.asar 解出校验器
 |---|---|---|
 | **定时任务会延迟** | cron 定 `0 19 * * *` UTC；2026-10-18 首次定时构建实际于 21:21 UTC 启动 | 延迟约 2h22m 属正常排队，但最坏情况可能被跳过；新插件实际延迟 1–26 小时 |
 | **Actions 缓存键每次都变** | `key: packuments-${{ github.run_id }}` | 精确 key 永不命中，只能靠 `restore-keys` 前缀捡最新的；每次运行都写新缓存，会持续累积到 GitHub 的 10 GB 上限 |
-| **热度标签覆盖偏低** | 351 / 7,147，阈值 `stars ≥ 100` 或 `downloads ≥ 1000` | 大多数插件卡片上不显示任何热度，即使它有数据 |
+| **热度标签覆盖偏低** | 435 / 7,123，阈值 `stars ≥ 100` 或 `downloads ≥ 1000` | 大多数插件卡片上不显示任何热度：DSH 的标签只有数值档位，没有「低于阈值」的表达方式 |
 | **没有生成时间戳** | 索引内无 `generatedAt` 字段 | 无法判断这份数据是几点生成的，排查「插件为什么没出现」时很痛苦 |
 | **构建失败无人知道** | Actions 失败只在网页和默认邮件里 | 索引可能静默停止更新，客户端只会看到越来越旧的数据 |
 | **社区目录下载无重试** | `curl --max-time 120` + `continue-on-error: true` | 一旦失败就直接跳过 metrics，**当天所有星数归零**，且被 `continue-on-error` 掩盖 |
@@ -247,7 +292,7 @@ tools/dsh-validator.mjs 从 app.asar 解出校验器
 | **兼容声明会滞后** | 索引只转述各包 `peerDependencies` 里的版本范围 | 插件作者未及时跟进 DSH 新版本时（例如 DSH 已发 `0.2.1-rc.2`，而插件仍声明只支持 `rc.1`），市场 UI 会误报「不兼容」，实际往往能跑 |
 | **索引是静态快照** | 每天重建一次 | 新发布的插件最多延迟 24 小时才出现；已被删除的包也可能残留一个周期 |
 | **搜索发现可能被限流** | npm 搜索连续请求会 429，且 `from>5000` 会绕回第 0 页 | 已用切片 + 指数退避缓解，但仍无法保证覆盖 8,782 个声明结果的全部；实际收录以命中 `dsh.bundle` 为准 |
-| **星数/下载量只覆盖 68%** | 4,839 / 7,147 有指标，来源是社区目录 dsh.so 的快照 | 另外 2,308 个插件（多为搜索新发现的）没有星数和下载量，按热度排序时排在末尾 |
+| **指标覆盖 89%，仍有 774 个缺口** | 6,349 / 7,123 有指标 | 623 个插件作者没填 `repository.url`；另 151 个仓库已删除或转为私有（API 返回 404）。这两类都无法通过 API 补齐 |
 
 ### 为什么这些没修
 
