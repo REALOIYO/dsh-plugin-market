@@ -2,8 +2,9 @@ name: Refresh market index
 
 on:
   schedule:
-    # 每天 UTC 19:00（北京时间 03:00）重建一次
-    - cron: '0 19 * * *'
+    # 每 6 小时一次（UTC 0/6/12/18，即北京时间 8/14/20/2 点）。
+    # GitHub 的 schedule 会排队延迟 1–2 小时，6 小时窗口仍能保持在 4–10 小时间隔。
+    - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
 
 permissions:
@@ -27,12 +28,19 @@ jobs:
       - name: Install validator
         run: npm install --no-audit --no-fund
 
-      # 缓存上次抓到的 packument 摘要，让每天只抓新增/变更的包
+      # 缓存上次抓到的 packument 摘要，让每次只抓新增/变更的包。
+      #
+      # key 必须是固定值：带 run_id 的 key 每次运行都不同，精确匹配永不命中，
+      # 只能靠 restore-keys 捡旧缓存，同时每次都新建一份永久缓存 —— 缓存条目
+      # 会无限累积（9.5 MB/次），最终把仓库的 10 GB 配额填满并触发热淘汰。
+      # 固定 key 让每次运行复用同一份（约 9.5 MB），只做覆盖更新。
+      #
+      # 提升 CACHE_VERSION 可在抓取逻辑变化时主动作废旧缓存。
       - name: Restore packument cache
         uses: actions/cache@v4
         with:
           path: .cache
-          key: packuments-${{ github.run_id }}
+          key: packuments-v2
           restore-keys: |
             packuments-
 
