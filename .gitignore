@@ -6,6 +6,6 @@ dshso.json
 Thumbs.db
 
 # 临时调试产物
-_.*
+_*
 *.bak-*
 *.bak
