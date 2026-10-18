@@ -24,17 +24,44 @@ const CONCURRENCY = 24;
 /**
  * 搜索关键词。
  *
- * 只保留 `keywords:dsh-plugin`：抽样 250 个包，其中 239 个（95.6%）是真正的
- * DSH bundle，命中率远高于其它关键词。`keywords:dsh` 总量虽大（11,003），
- * 但 `dsh` 三字母在其它语境也常用，混入大量非插件包，且会把索引撑大一倍多。
- *
- * 如果将来要扩量，先对小样本测命中率，再决定是否加入。
+ * 只保留 `keywords:dsh-plugin`：抽样 750 个包全部带该关键词（精确率 100%），
+ * 且 250 抽样里 239 个（95.6%）声明了 `dsh.bundle`。`keywords:dsh` 总量更大
+ * （11,003）但 `dsh` 三字母在其它语境也常用，会混入大量非插件包并把索引撑大一倍。
  */
-const QUERIES = [
-  'keywords:dsh-plugin',
-];
+const QUERIES = ['keywords:dsh-plugin'];
 
 const warned = new Set();
+
+/** 搜索翻页参数。npm 搜索接口 from 上限 10000。 */
+const SEARCH_PAGE_SIZE = 250;
+const SEARCH_MAX_FROM = 10000;
+/** 单页遇到 429 时的最大重试次数与退避基数（毫秒）。 */
+const SEARCH_MAX_RETRIES = 6;
+const SEARCH_BACKOFF_MS = 3000;
+
+/**
+ * 关键词切片的追加词。
+ *
+ * 背景：npm 搜索的 `from` 超过约 5000 后会**从头重复返回第 0 页**
+ * （实测 from=5250 与 from=0 的 250 条完全重合），因此单靠翻页
+ * 一个关键词最多只能拿到 ~5,250 个结果，而 `keywords:dsh-plugin` 声明有 8,782 个。
+ *
+ * npm 的 `text` 不是结构化查询，`published:` 之类的过滤器只改变排序起点、
+ * 不做真正过滤（实测 12 个月切片并集仅 560 个）。但**把裸词叠加进 text
+ * 会真正参与匹配**，从而把结果集切成互不相同的子集：
+ * 加 `a` 后与基线重叠 59/250，加 `dsh-` 后 75/250。
+ *
+ * 因此用「单字母 + 数字 + 连字符前缀」做切片，每个切片独立翻页，
+ * 最后取并集。切片是**补充**而非替代：基线切片必须保留，
+ * 否则会漏掉那些不与任何切片词匹配的包。
+ */
+const SEARCH_SLICES = [
+  '', // 基线：不带追加词，保证不遗漏
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+  'dsh-', 'plugin', 'bundle', 'agent', 'skill', 'tool', 'mcp', 'ui', 'web',
+];
 
 function warnOnce(key, message) {
   if (warned.has(key)) return;
@@ -92,6 +119,47 @@ async function curlJson(url, attempts = 3) {
 }
 
 /**
+ * 取一页搜索结果，遇到 429 / 5xx 时指数退避重试。
+ *
+ * npm 搜索接口没有 `Retry-After` 也没有限流响应头，无法预知配额，
+ * 只能靠失败后退避。429 是「请求太快」而非「翻到某一页」触发的，
+ * 所以退避重试通常能在同一位置继续，不必放弃整个关键词。
+ *
+ * 返回 undefined 表示这一页确实取不到（重试耗尽），调用方据此停止翻页。
+ */
+async function searchPage(url, query, from) {
+  for (let attempt = 1; attempt <= SEARCH_MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(45000),
+      });
+      if (response.status === 429 || response.status >= 500) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      if (response.status === 404) {
+        console.warn(`  ${query} from=${from} 返回 404，停止翻页`);
+        return undefined;
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      if (text.trim() === '') throw new Error('空响应');
+      return JSON.parse(text);
+    } catch (error) {
+      if (attempt === SEARCH_MAX_RETRIES) {
+        console.warn(`  ${query} from=${from} 重试 ${SEARCH_MAX_RETRIES} 次仍失败（${error.message}），停止翻页`);
+        return undefined;
+      }
+      // 3s, 6s, 12s … 封顶 60s
+      const wait = Math.min(SEARCH_BACKOFF_MS * 2 ** (attempt - 1), 60000);
+      console.warn(`  ${query} from=${from} ${error.message}，${(wait / 1000).toFixed(0)}s 后重试（${attempt}/${SEARCH_MAX_RETRIES}）`);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+  return undefined;
+}
+
+/**
  * 收集候选包名：种子清单 + npm 搜索。
  *
  * 两者都要 —— 种子覆盖社区已知的包，搜索覆盖种子里没有的（例如只在 npm 发布、
@@ -113,23 +181,38 @@ async function discoverNames() {
   }
 
   const seedCount = names.size;
-  console.log('npm 搜索补充…');
+  console.log('npm 搜索补充（按切片翻页，取并集）…');
   for (const query of QUERIES) {
-    let before = names.size;
-    for (let from = 0; from < 10000; from += 250) {
-      // 冒号必须原样保留：npm 不接受 %3A 编码的 `keywords:` 语法
-      const url = `${REGISTRY}/-/v1/search?text=${encodeURIComponent(query).replace(/%3A/gi, ':')}&size=250&from=${from}`;
-      const page = await curlJson(url);
-      if (page === undefined) {
-        // 静默失败会让「自动发现」彻底失效却毫无征兆，因此必须留痕
-        console.warn(`  搜索请求失败，中止关键词 ${query}（from=${from}）`);
-        break;
+    for (const slice of SEARCH_SLICES) {
+      const text = slice === '' ? query : `${query} ${slice}`;
+      const before = names.size;
+      let pages = 0;
+      for (let from = 0; from < SEARCH_MAX_FROM; from += SEARCH_PAGE_SIZE) {
+        // 冒号必须原样保留：npm 不接受 %3A 编码的 `keywords:` 语法
+        const url = `${REGISTRY}/-/v1/search?text=${encodeURIComponent(text).replace(/%3A/gi, ':')}&size=${SEARCH_PAGE_SIZE}&from=${from}`;
+        const page = await searchPage(url, text, from);
+        if (page === undefined) break;
+        if (!Array.isArray(page.objects) || page.objects.length === 0) break;
+
+        let fresh = 0;
+        for (const object of page.objects) {
+          const name = object?.package?.name;
+          if (typeof name !== 'string') continue;
+          if (names.has(name)) continue;
+          names.add(name);
+          fresh += 1;
+        }
+        pages += 1;
+        // 整页都是已收录的包，说明这个切片已经翻到头（或进入重复区），停止
+        if (fresh === 0) break;
+        if (page.objects.length < SEARCH_PAGE_SIZE) break;
       }
-      if (!Array.isArray(page.objects) || page.objects.length === 0) break;
-      for (const object of page.objects) names.add(object.package.name);
-      if (page.objects.length < 250) break;
+      const added = names.size - before;
+      // 只有带来新包的切片才值得打印，否则 40 多个切片会刷屏
+      if (added > 0 || slice === '') {
+        console.log(`  ${(slice === '' ? '(基线)' : slice).padEnd(10)} 页=${String(pages).padStart(2)} +${String(added).padStart(4)}  累计 ${names.size}`);
+      }
     }
-    console.log(`  ${query.padEnd(28)} +${names.size - before}`);
   }
 
   console.log(`合计 ${names.size} 个候选（搜索新增 ${names.size - seedCount}）`);
