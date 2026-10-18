@@ -12,7 +12,6 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import semver from 'semver';
 
 const REGISTRY = 'https://registry.npmjs.org';
@@ -22,17 +21,17 @@ const SEEDS_DIR = 'seeds';
 const METRICS_FILE = 'metrics.json';
 const CONCURRENCY = 24;
 
-/** 广撒网的搜索关键词：覆盖关键字、命名约定和生态前缀。 */
+/**
+ * 搜索关键词。
+ *
+ * 只保留 `keywords:dsh-plugin`：抽样 250 个包，其中 239 个（95.6%）是真正的
+ * DSH bundle，命中率远高于其它关键词。`keywords:dsh` 总量虽大（11,003），
+ * 但 `dsh` 三字母在其它语境也常用，混入大量非插件包，且会把索引撑大一倍多。
+ *
+ * 如果将来要扩量，先对小样本测命中率，再决定是否加入。
+ */
 const QUERIES = [
-  'keywords:dsh',
   'keywords:dsh-plugin',
-  'keywords:deepseek-harness',
-  'keywords:deepseek',
-  'dsh-plugin',
-  'dsh-',
-  'deepseek-harness',
-  'cordis-plugin',
-  'dsh',
 ];
 
 const warned = new Set();
@@ -64,24 +63,29 @@ async function getJson(url, attempts = 3) {
 /**
  * 用 curl 取 JSON。
  *
- * 某些网络环境下 Node 的 fetch 访问 npm 的搜索接口会被中间设备拦成 404，
- * 而 curl 走同样的 URL 却正常。搜索发现必须可靠，所以这里直接调 curl。
+ * 这里用 Node 原生 fetch 而不是外部 curl：本机 curl 走 Windows schannel，
+ * 在连续请求时会频繁出现 `failed to receive handshake` / 证书吊销检查失败，
+ * 串行翻页时整轮发现会卡死。fetch 走同一网络路径但没有这个问题（已实测 200）。
+ *
+ * 注意：npm 搜索接口的正确路径是 `/-/v1/search`（`/-/` 前缀不能省）。
+ * 曾因写成 `/-v1/search` 导致搜索恒返回 404，而失败被静默吞掉，
+ * 使「自动发现」长时间空转却无任何报错。
  */
-function curlJson(url, attempts = 3) {
+async function curlJson(url, attempts = 3) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const stdout = execFileSync('curl', ['-sS', '-m', '40', '--compressed', url], {
-        encoding: 'utf8',
-        maxBuffer: 128 * 1024 * 1024,
-      });
-      if (stdout.trim() === '') throw new Error('空响应');
-      return JSON.parse(stdout);
+      const response = await fetch(url, { headers: { accept: 'application/json' } });
+      if (response.status === 404) return undefined;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      if (text.trim() === '') throw new Error('空响应');
+      return JSON.parse(text);
     } catch (error) {
       if (attempt === attempts) {
-        warnOnce(url, `curl 放弃 ${url}: ${error.message}`);
+        warnOnce(url, `放弃 ${url}: ${error.message}`);
         return undefined;
       }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500 * attempt);
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
     }
   }
   return undefined;
@@ -114,9 +118,14 @@ async function discoverNames() {
     let before = names.size;
     for (let from = 0; from < 10000; from += 250) {
       // 冒号必须原样保留：npm 不接受 %3A 编码的 `keywords:` 语法
-      const url = `${REGISTRY}/-v1/search?text=${encodeURIComponent(query).replace(/%3A/gi, ':')}&size=250&from=${from}`;
-      const page = curlJson(url);
-      if (page === undefined || !Array.isArray(page.objects) || page.objects.length === 0) break;
+      const url = `${REGISTRY}/-/v1/search?text=${encodeURIComponent(query).replace(/%3A/gi, ':')}&size=250&from=${from}`;
+      const page = await curlJson(url);
+      if (page === undefined) {
+        // 静默失败会让「自动发现」彻底失效却毫无征兆，因此必须留痕
+        console.warn(`  搜索请求失败，中止关键词 ${query}（from=${from}）`);
+        break;
+      }
+      if (!Array.isArray(page.objects) || page.objects.length === 0) break;
       for (const object of page.objects) names.add(object.package.name);
       if (page.objects.length < 250) break;
     }

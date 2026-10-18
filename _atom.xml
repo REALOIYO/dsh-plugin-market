@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
+  <id>tag:github.com,2008:/REALOIYO/dsh-plugin-market/commits/main</id>
+  <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commits/main"/>
+  <link type="application/atom+xml" rel="self" href="https://github.com/REALOIYO/dsh-plugin-market/commits/main.atom"/>
+  <title>Recent Commits to dsh-plugin-market:main</title>
+  <updated>2026-10-17T16:42:38Z</updated>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/ca239bbe227b3f9767ce10efdaf82863c099b6e2</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/ca239bbe227b3f9767ce10efdaf82863c099b6e2"/>
+    <title>
+        Document known unresolved limitations
+    </title>
+    <updated>2026-10-17T16:42:38Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Document known unresolved limitations&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/58529a683291d590e5ede1233f82f69b7a2d71e9</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/58529a683291d590e5ede1233f82f69b7a2d71e9"/>
+    <title>
+        Make authors searchable and stars visible
+    </title>
+    <updated>2026-10-17T13:18:39Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Make authors searchable and stars visible
+
+- resolve author from manifest, maintainers, repository owner, or npm scope:
+  coverage goes from 40% to 99.9%, so author search actually works
+- match stars by package basename when the catalog records a package under a
+  GitHub source, which is why some packages showed no stars
+- expose heat as labels (stars/downloads tiers): format 1 shows labels on the
+  card but never renders sortKeys values, so a tier label is the only way to
+  surface popularity in the list view&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/d8a7b6a601be346b326b66b353a97dfdb5e035b0</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/d8a7b6a601be346b326b66b353a97dfdb5e035b0"/>
+    <title>
+        Document sorting keys and auto-refresh
+    </title>
+    <updated>2026-10-17T13:10:12Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Document sorting keys and auto-refresh&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/c157ae6dbaec7961ed4f65c674a516a4b65ef7e5</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/c157ae6dbaec7961ed4f65c674a516a4b65ef7e5"/>
+    <title>
+        Refresh index 2026-10-17
+    </title>
+    <updated>2026-10-17T13:10:02Z</updated>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/in/15368?s=30&amp;v=4"/>
+    <author>
+      <name>github-actions</name>
+      <uri>https://github.com/github-actions</uri>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Refresh index 2026-10-17&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/dcdd60b69ab7615948ccdbf34d0174e9444293ee</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/dcdd60b69ab7615948ccdbf34d0174e9444293ee"/>
+    <title>
+        Add daily refresh workflow
+    </title>
+    <updated>2026-10-17T13:08:50Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Add daily refresh workflow&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/c235698f97bc706493fbe64dfbd89f5041a48ce0</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/c235698f97bc706493fbe64dfbd89f5041a48ce0"/>
+    <title>
+        Fix coverage gap and add star/download sorting
+    </title>
+    <updated>2026-10-17T13:08:32Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Fix coverage gap and add star/download sorting
+
+- search npm via curl: the search endpoint returns 404 through Node fetch on
+  some networks, which left packages such as dsh-our-free-model out of the
+  seed-only discovery
+- sort versions by SemVer so versions[0] is the highest, matching the reader
+- add stars and downloads sort keys so the UI can rank by popularity
+- install the validator from npm so CI can check without a local DSH&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/f9dd551829a87734078ba117e122302aa0b4b842</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/f9dd551829a87734078ba117e122302aa0b4b842"/>
+    <title>
+        Add live verification tool
+    </title>
+    <updated>2026-10-17T11:57:07Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Add live verification tool&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/0651296dd4e4fb6023bf55a17c75787d0237be4b</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/0651296dd4e4fb6023bf55a17c75787d0237be4b"/>
+    <title>
+        Expand index to all 4,838 installable DSH bundles
+    </title>
+    <updated>2026-10-17T11:51:47Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Expand index to all 4,838 installable DSH bundles
+
+- discovery from seed lists instead of the npm search endpoint, which is
+  blocked by middleboxes on some networks
+- compress each packument immediately so memory stays constant (the earlier
+  batch-everything approach ran out of heap at 18k packages)
+- reject empty results instead of overwriting a good index
+- sanitize repository.directory, which must not be &amp;quot;.&amp;quot; or contain illegal chars
+- add cross-check against dsh.so security scans (4838/4838 matched, 0 high risk)&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/2baa87708f0afe124b11379cd79553fd3d20906e</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/2baa87708f0afe124b11379cd79553fd3d20906e"/>
+    <title>
+        Pin line endings to LF
+    </title>
+    <updated>2026-10-17T11:21:06Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Pin line endings to LF&lt;/pre&gt;
+    </content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Grit::Commit/ac5ca1187e56402f02d9062cde909f637c486b0e</id>
+    <link type="text/html" rel="alternate" href="https://github.com/REALOIYO/dsh-plugin-market/commit/ac5ca1187e56402f02d9062cde909f637c486b0e"/>
+    <title>
+        Add DSH plugin market index (format 1) with generator and validators
+    </title>
+    <updated>2026-10-17T11:21:02Z</updated>
+    <media:thumbnail height="30" width="30" url="https://2.gravatar.com/avatar/fa3ee690bbfd88026fbe7b722c11e7d8?d=https%3A%2F%2Fgithub.githubassets.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png&amp;r=g&amp;s=30"/>
+    <author>
+      <name></name>
+      <email>dsh-user@users.noreply.github.com</email>
+    </author>
+    <content type="html">
+      &lt;pre style=&#39;white-space:pre-wrap;width:81ex&#39;&gt;Add DSH plugin market index (format 1) with generator and validators
+
+- index.json: 22 bundles pinned to published npm versions
+- build-index.mjs: generate format-1 index from npm package names
+- tools/: validate against the real DSH validator extracted from app.asar,
+  reproduce the host fetch path, and audit for private data before publishing&lt;/pre&gt;
+    </content>
+  </entry>
+</feed>
