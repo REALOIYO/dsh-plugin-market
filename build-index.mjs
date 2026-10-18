@@ -449,7 +449,19 @@ async function fetchAll(names, cache) {
 }
 
 const argv = process.argv.slice(2);
-let config = { title: 'My DSH Market', plugins: [] };
+/**
+ * 索引标题与描述。格式允许纯字符串，但双语对象才能让界面按用户语言显示，
+ * 且校验器要求对象必须含 `en`。
+ */
+const DEFAULT_TITLE = {
+  en: 'DSH Plugin Index',
+  zh: 'DSH 插件索引',
+};
+const DEFAULT_DESCRIPTION = {
+  en: 'Full catalog of every installable DSH bundle on npm, rebuilt daily.',
+  zh: 'npm 上全部可安装 DSH 组合包的完整索引，每天自动重建。',
+};
+let config = { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION, plugins: [] };
 let useCache = false;
 let explicit = false;
 
@@ -600,7 +612,7 @@ const hasMetadata =
 
 const index = {
   format: 1,
-  title: config.title ?? 'My DSH Market',
+  title: config.title ?? DEFAULT_TITLE,
   ...(config.description === undefined ? {} : { description: config.description }),
   ...(hasMetadata
     ? {

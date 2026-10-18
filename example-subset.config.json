@@ -1,4 +1,5 @@
 {
+  "_comment": "示例：用 --config 生成一份只含指定插件的子集索引。日常构建不使用本文件。",
   "title": { "en": "My DSH Market", "zh": "我的 DSH 市场" },
   "description": {
     "en": "Bundles I actually run, pinned to published npm versions.",
