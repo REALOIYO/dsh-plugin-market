@@ -285,10 +285,48 @@ function resolveAuthor(manifest, repositoryUrl, packageName) {
   );
 }
 
+/**
+ * 提取一个版本对 DSH 的版本要求，用于索引里的 `engines.dsh`。
+ *
+ * 规则必须与 DSH 自身判断兼容性的逻辑保持一致（`dsh-app-boot` 的
+ * `unmetRequirements`）：**有 `engines.dsh` 时就只认它，忽略 peerDependencies；
+ * 没有 `engines.dsh` 时才逐个检查 `@deepseek-ai/dsh` 和 `@deepseek-ai/dsh-*`
+ * 的 peerDependencies 范围，全部满足才算兼容。**
+ *
+ * 索引格式只允许 `engines.dsh` 一个字段，表达不了「多个 peer 各自的范围」，
+ * 所以这里把多个 peer 范围**取交集**合并成一个范围。这样得到的范围可能比
+ * 真实要求更宽松（peer 各自描述的是不同包的兼容区间），但方向是对的：
+ * 不会出现「本该判为不兼容却被判为兼容」之外的新误报。
+ *
+ * 实测抽样中，同一版本的多个 dsh peer 范围几乎总是一致的，
+ * 因此取交集在实践中等同于取任意一个。
+ */
 function dshRange(manifest) {
-  const range = manifest.engines && manifest.engines.dsh;
-  if (typeof range !== 'string' || range.trim() === '' || range.startsWith('workspace:')) return undefined;
-  return range.trim();
+  const engines = manifest.engines && manifest.engines.dsh;
+  if (typeof engines === 'string' && engines.trim() !== '' && !engines.startsWith('workspace:')) {
+    return engines.trim();
+  }
+
+  const peers = manifest.peerDependencies;
+  if (peers === null || typeof peers !== 'object') return undefined;
+
+  const ranges = [];
+  for (const [name, range] of Object.entries(peers)) {
+    if (typeof range !== 'string') continue;
+    // 只有 dsh 本体的包才参与兼容判断，与 DSH 的规则一致
+    if (name !== '@deepseek-ai/dsh' && !name.startsWith('@deepseek-ai/dsh-')) continue;
+    // workspace: 范围在官方逻辑里指向当前运行时，索引里无法表达，直接跳过
+    if (range.startsWith('workspace:')) continue;
+    const trimmed = range.trim();
+    if (trimmed === '' || semver.validRange(trimmed) === null) continue;
+    ranges.push(trimmed);
+  }
+  if (ranges.length === 0) return undefined;
+
+  // 取交集：把所有范围用空格连接即 semver 的 AND 语义
+  const unique = [...new Set(ranges)];
+  const merged = unique.length === 1 ? unique[0] : unique.join(' ');
+  return semver.validRange(merged) === null ? undefined : merged;
 }
 
 /** 仓库内的相对目录：各段只能是 ASCII 字母数字和 ._@+-，且不能是 . 或 .. */

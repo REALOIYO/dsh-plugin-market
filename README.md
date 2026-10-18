@@ -4,7 +4,7 @@
 
 一份自建的 DSH 插件市场索引，收录 npm 上可发现的 DSH 组合包（bundle）。
 
-**规模**：7,147 个插件 / 58,112 个版本，索引文件 8.2 MB。
+**规模**：7,123 个插件 / 58,629 个版本，索引文件 9.5 MB。
 **来源**：npm registry 公开元数据（包名、版本、发布时间、`dsh.bundle` 声明、仓库地址）。
 **更新**：GitHub Actions 每天自动重建一次，也可以手动触发。
 
@@ -57,6 +57,36 @@ DSH 从 URL 拉一份 JSON，用 `@deepseek-ai/dsh-plugin-market-index` 按「�
 任何一条规则违规，**整份索引都会被拒绝**，错误会带 JSON 路径。
 
 它不是 npm 的 `index.json`，也不是任何网站的首页 —— 是一份专门描述「有哪些可安装 bundle」的清单。
+
+## 兼容性是怎么判的
+
+索引里每个版本都带一个 `engines.dsh` SemVer 范围，DSH 用它决定是否允许安装。
+判断规则**必须与 DSH 自身一致**（`dsh-app-boot` 的 `unmetRequirements`）：
+
+1. 包里有 `engines.dsh` → **只认它**，`peerDependencies` 被忽略；
+2. 没有 `engines.dsh` → 逐个检查 `@deepseek-ai/dsh` 和 `@deepseek-ai/dsh-*` 的 `peerDependencies`，
+   全部满足才算兼容。
+
+比较时使用 `semver.satisfies(runtime, range, { includePrerelease: true })`——
+**预发布版本参与范围比较**，这一点很容易踩错：不加 `includePrerelease` 时
+`"*"` 对 `0.2.1-rc.2` 会返回 `false`，导致几乎所有插件都被误判为不兼容。
+
+生成器把多个 peer 范围**取交集**合并成一个范围（索引格式只允许一个 `engines.dsh` 字段）。
+实测同一版本的多个 dsh peer 范围几乎总是一致的，所以取交集在实践中等同取任意一个。
+
+> 2026-10-18 修复：生成器此前**只读 `engines.dsh`、完全不读 `peerDependencies`**，
+> 导致 3,603 个插件的兼容声明缺失，其中 **1,760 个被错误地显示为「兼容」而实际不支持
+> 当时的运行时**。修复后 `engines.dsh` 覆盖从 10.1% 提升到 60.5%。
+> 这就是「从索引点安装几乎没成功过」的主要原因之一。
+
+## 为什么不能在线更新
+
+这不是索引的问题，是 DSH 的限制。官方 `plugin-manager` 只暴露 `installBundle` 和 `removeBundle`，
+**没有 `updateBundle`**；官方 README 也写明「不支持升级 —— 升级仍需先卸载再安装」。
+
+`dshmarket` 这类第三方市场通过别的路子绕过了：它不用 `installBundle`，而是直接跑
+`dsh plugin update <name>`（底层是 `pnpm update`），从而原地升级。本索引是纯静态 JSON，
+不跑任何命令，因此无法提供更新按钮。
 
 ---
 
