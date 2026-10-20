@@ -1,5 +1,6 @@
 # DSH 插件市场索引（format 1）
 
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
 [![Refresh market index](https://github.com/REALOIYO/dsh-plugin-market/actions/workflows/refresh.yml/badge.svg)](https://github.com/REALOIYO/dsh-plugin-market/actions/workflows/refresh.yml)
 
 一份自建的 DSH 插件市场索引，收录 npm 上可发现的 DSH 组合包（bundle）。
@@ -336,3 +337,5 @@ tools/dsh-validator.mjs 从 app.asar 解出校验器
 - **标签阈值**是产品判断：放宽会让卡片变杂，收窄会让更多人没有标签，没有明显占优的答案；
 - **兼容声明滞后**不是本索引能解决的 —— 它只是转述 npm 上的声明，真正的修复在插件作者侧；
 - **静态快照**是 GitHub Pages 托管方式的固有限制，要做增量更新就得换一套服务端。
+
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
