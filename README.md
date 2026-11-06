@@ -1,14 +1,22 @@
 # DSH 插件市场索引（format 1）
 
+> **已停止维护（2026-11-06）**
+>
+> 自动重建已关闭，索引内容**冻结在 2026-11-05 那一版**，不会再更新。
+> 需要还在维护的插件目录，请用
+> [**awesome-dsh-plugin**](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+> —— 它逐条对着源码复核，而且本身就是 DSH 内置 Discover 的索引源之一。
+>
+> 这个仓库继续保留可读，Pages 上的 `index.json` 也仍然可用，只是不再刷新。
+
 [![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
-[![Refresh market index](https://github.com/REALOIYO/dsh-plugin-market/actions/workflows/refresh.yml/badge.svg)](https://github.com/REALOIYO/dsh-plugin-market/actions/workflows/refresh.yml)
 
 一份自建的 DSH 插件市场索引，收录 npm 上可发现的 DSH 组合包（bundle）。
 
 **规模**：7,123 个插件 / 58,629 个版本，索引文件 9.5 MB。
 **来源**：npm registry 公开元数据（包名、版本、发布时间、`dsh.bundle` 声明、仓库地址）。
 **热度**：6,349 / 7,123（89.1%）带星数或下载量指标——星数取自 GitHub API，下载量取自 npm API。
-**更新**：GitHub Actions **每 6 小时**自动重建一次（UTC 0/6/12/18），也可以手动触发。
+**更新**：~~GitHub Actions 每 6 小时自动重建一次（UTC 0/6/12/18）~~ —— **已于 2026-11-06 停止**，内容不再变化。
 
 标题与描述都是双语对象（`{ "en": ..., "zh": ... }`），DSH 按界面语言显示：
 
